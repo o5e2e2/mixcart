@@ -1,21 +1,25 @@
 include .env
 
-up:
+start:
 	docker-compose up -d
 
-down:
+stop:
 	docker-compose down --remove-orphans
 
-build:
+rebuild: clean
 	docker-compose up --build -d
 
-rebuild: clean build
+workers:
+	docker exec $(PHP-CLI) php /app/workerpool.php
 
-bash: up
-	docker exec -it $(PHP-CLI) bash
+cli: start
+	#bash почему-то в данной версии контейнера нет, можно найти готовый контейнер с башем
+	docker exec -it $(PHP-CLI) sh
 
-clean: down
+mysql: start
+	docker exec -it $(MYSQL) bash
+
+clean: stop
 	docker-compose rm -f
 	sudo rm -rf $(PWD)/mysql/data
-	rm -rf $(PWD)/nginx/ssl
 	sudo rm -rf $(PWD)/nginx/log
