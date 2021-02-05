@@ -1,0 +1,58 @@
+version: '2'
+
+services:
+    mysql:
+        image: mysql:5.7.22
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            - MYSQL_DATABASE=${MYSQL_DATABASE}
+            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+            - MYSQL_USER=${MYSQL_USER}
+            - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+        ports:
+            - 8989:3306
+        volumes:
+            - ./mysql/data:/var/lib/mysql
+            - ./mysql/initdb.d:/docker-entrypoint-initdb.d
+
+    nginx:
+        image: nginx:alpine
+        restart: unless-stopped
+        depends_on:
+            - php-fpm
+        volumes:
+            - ./nginx/default.template.conf:/etc/nginx/conf.d/default.template
+            - ./nginx/ssl:/etc/ssl
+            - ./nginx/log:/var/log/nginx
+        volumes_from:
+            - php-fpm
+        ports:
+            - 8000:80
+            - 3000:443
+        environment:
+            - NGINX_HOST=${NGINX_HOST}
+        command: /bin/sh -c "envsubst '$$NGINX_HOST' < /etc/nginx/conf.d/default.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+
+    php-fpm:
+        build: ./php
+        restart: unless-stopped
+        depends_on:
+            - mysql
+        volumes_from:
+            - php-cli
+
+    php-cli:
+        container_name: php-cli
+        build: ./php
+        restart: unless-stopped
+        tty: true
+        depends_on:
+            - mysql
+        volumes:
+            - ./php/conf.d/20-xdebug.ini:/usr/local/etc/php/conf.d/20-xdebug.ini
+            - ./app:/app
+        ports:
+            - 8008:8008
+        command: php -S 0.0.0.0:8008 -t /app/public
